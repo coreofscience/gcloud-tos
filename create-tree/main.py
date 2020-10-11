@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 from io import StringIO
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import google.cloud.logging
 from firebase_admin import db, initialize_app
@@ -19,6 +19,7 @@ logging_client.setup_logging()
 
 BUCKET_URL = os.getenv("STORAGEBUCKET")
 DATABASE_URL = os.getenv("DATABASEURL")
+BUCKET = storage_client.get_bucket(BUCKET_URL)
 
 initialize_app(options={"databaseURL": DATABASE_URL})
 
@@ -50,6 +51,24 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
     return output
 
 
+def get_contents(delta: Dict[str, Any]) -> List[str]:
+    """Get the contents for the files in order to create the graph."""
+    names = [f"isi-files/{name}" for name in delta["files"].values()]
+    logging.info(f"Reading source files {names}")
+    blobs = [BUCKET.get_blob(name) for name in names]
+    return [blob.download_as_text() for blob in blobs if blob is not None]
+
+
+def store_tree_result(tree_id: str, result: Dict[str, List[Dict]]) -> str:
+    """Stores a json in the storage service with the result for the ToS built."""
+    logging.info(f"Successfuly created tree for {tree_id}")
+    result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}.json"
+    BUCKET.blob(result_name).upload_from_string(
+        json.dumps(result, indent=2), content_type="application/json"
+    )
+    return result_name
+
+
 def create_tree(event, context):
     delta = event.get("delta", {"files": {}})
     tree_id = "/".join(context.resource.split("/")[-2:])
@@ -58,18 +77,11 @@ def create_tree(event, context):
     db.reference(tree_id).set(delta)
 
     try:
-        bucket = storage_client.get_bucket(BUCKET_URL)
-        names = [f"isi-files/{name}" for name in delta["files"].values()]
-        logging.info(f"Reading source files {names}")
-        blobs = [bucket.get_blob(name) for name in names]
-        contents = [blob.download_as_text() for blob in blobs if blob is not None]
+        contents = get_contents(delta)
         tos = tree_from_strings(contents)
         result = convert_tos_to_json(tos)
-        logging.info(f"Successfuly created tree for {tree_id}")
-        result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}.json"
-        bucket.blob(result_name).upload_from_string(
-            json.dumps(result, indent=2), content_type="application/json"
-        )
+        result_name = store_tree_result(tree_id, result)
+
         logging.info(f"Successfuly stored tree at {result_name}")
         delta.update(
             {
