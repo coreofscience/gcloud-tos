@@ -41,12 +41,15 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
     }
     """
     output = {}
-
-    labels = ["root", "trunk", "leaf"]
-    for label in labels:
-        vertices = tree.vs.select(**{f"{label}_gt": 0})
-        data = [vertex.attributes() for vertex in vertices]
-        output[label] = data
+    sections = ["root", "trunk", "leaf"]
+    for section in sections:
+        vertices = tree.vs.select(**{f"{section}_gt": 0})
+        data = sorted(
+            [vertex.attributes() for vertex in vertices],
+            key=lambda article: article.get(section, 0),
+            reverse=True,
+        )
+        output[section] = data
 
     return output
 
@@ -83,16 +86,20 @@ def create_tree(event, context):
         result_name = store_tree_result(tree_id, result)
 
         logging.info(f"Successfuly stored tree at {result_name}")
+        delta.update({"result": result_name, "error": None})
+    except Exception as error:
+        logging.exception(f"There was an error processing {tree_id}")
         delta.update(
             {
-                "version": "1",
-                "result": result_name,
-                "finishedDate": int(datetime.utcnow().timestamp()),
+                "result": None,
+                "error": str(error),
             }
         )
-    except Exception as error:
-        error = str(error)
-        logging.error(f"There was an error: {error}")
-        delta.update({"result": None, "error": error})
 
+    delta.update(
+        {
+            "version": "1",
+            "finishedDate": int(datetime.utcnow().timestamp()),
+        }
+    )
     db.reference(tree_id).set(delta)
