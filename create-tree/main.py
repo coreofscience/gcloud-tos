@@ -1,12 +1,22 @@
+import base64
+import json
 import os
+import logging
+from datetime import datetime
 from io import StringIO
 from typing import Dict, List
 
+from firebase_admin import db, initialize_app
 from google.cloud import storage
 from igraph import Graph
 from sap import CachedCollection, Sap, giant
 
 storage_client = storage.Client()
+
+BUCKET_URL = os.getenv("STORAGEBUCKET")
+DATABASE_URL = os.getenv("DATABASEURL")
+
+initialize_app(options={"databaseURL": DATABASE_URL})
 
 
 def tree_from_strings(strings: List[str]) -> Graph:
@@ -37,19 +47,28 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
 
 
 def create_tree(event, context):
-    print(event, context)
     delta = event.get("delta", {"files": {}})
-    print(delta)
-    bucket_name = os.getenv("STORAGEBUCKET")
-    bucket = storage_client.get_bucket(bucket_name)
+    tree_id = "/".join(context.resource.split("/")[-2:])
+    logging.info(f"Creating tree for {tree_id}")
+    delta.update({"startedDate": int(datetime.utcnow().timestamp())})
+    db.reference(tree_id).set(delta)
+    bucket = storage_client.get_bucket(BUCKET_URL)
     names = [f"isi-files/{name}" for name in delta["files"].values()]
-    print(names)
+    logging.info(f"Reading source files {names}")
     blobs = [bucket.get_blob(name) for name in names]
-    print(blobs)
     contents = [blob.download_as_text() for blob in blobs if blob is not None]
-
     tos = tree_from_strings(contents)
     result = convert_tos_to_json(tos)
-
-    print(result)
-    return result
+    logging.info(f"Successfuly created tree for {tree_id}")
+    result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}.json"
+    bucket.blob(result_name).upload_from_string(json.dumps(result, indent=2))
+    logging.info(f"Successfuly stored tree at {result_name}")
+    delta.update(
+        {
+            "version": "1",
+            "result": result_name,
+            "finishedDate": int(datetime.utcnow().timestamp()),
+        }
+    )
+    db.reference(tree_id).set(delta)
+    logging.info(f"Successfuly stored tree for {tree_id}")
