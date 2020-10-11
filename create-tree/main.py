@@ -1,17 +1,21 @@
 import base64
 import json
-import os
 import logging
+import os
 from datetime import datetime
 from io import StringIO
 from typing import Dict, List
 
+import google.cloud.logging
 from firebase_admin import db, initialize_app
 from google.cloud import storage
 from igraph import Graph
 from sap import CachedCollection, Sap, giant
 
 storage_client = storage.Client()
+logging_client = google.cloud.logging.Client()
+logging_client.get_default_handler()
+logging_client.setup_logging()
 
 BUCKET_URL = os.getenv("STORAGEBUCKET")
 DATABASE_URL = os.getenv("DATABASEURL")
@@ -61,7 +65,9 @@ def create_tree(event, context):
     result = convert_tos_to_json(tos)
     logging.info(f"Successfuly created tree for {tree_id}")
     result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}.json"
-    bucket.blob(result_name).upload_from_string(json.dumps(result, indent=2))
+    bucket.blob(result_name).upload_from_string(
+        json.dumps(result, indent=2), content_type="application/json"
+    )
     logging.info(f"Successfuly stored tree at {result_name}")
     delta.update(
         {
