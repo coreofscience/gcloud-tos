@@ -52,11 +52,12 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
 
 def create_tree(event, context):
     delta = event.get("delta", {"files": {}})
+    tree_id = "/".join(context.resource.split("/")[-2:])
+    logging.info(f"Creating tree for {tree_id}")
+    delta.update({"startedDate": int(datetime.utcnow().timestamp())})
+    db.reference(tree_id).set(delta)
+
     try:
-        tree_id = "/".join(context.resource.split("/")[-2:])
-        logging.info(f"Creating tree for {tree_id}")
-        delta.update({"startedDate": int(datetime.utcnow().timestamp())})
-        db.reference(tree_id).set(delta)
         bucket = storage_client.get_bucket(BUCKET_URL)
         names = [f"isi-files/{name}" for name in delta["files"].values()]
         logging.info(f"Reading source files {names}")
@@ -77,8 +78,9 @@ def create_tree(event, context):
                 "finishedDate": int(datetime.utcnow().timestamp()),
             }
         )
-        db.reference(tree_id).set(delta)
     except Exception as error:
         error = str(error)
         logging.error(f"There was an error: {error}")
         delta.update({"result": None, "error": error})
+
+    db.reference(tree_id).set(delta)
