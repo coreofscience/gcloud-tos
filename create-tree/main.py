@@ -52,29 +52,33 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
 
 def create_tree(event, context):
     delta = event.get("delta", {"files": {}})
-    tree_id = "/".join(context.resource.split("/")[-2:])
-    logging.info(f"Creating tree for {tree_id}")
-    delta.update({"startedDate": int(datetime.utcnow().timestamp())})
-    db.reference(tree_id).set(delta)
-    bucket = storage_client.get_bucket(BUCKET_URL)
-    names = [f"isi-files/{name}" for name in delta["files"].values()]
-    logging.info(f"Reading source files {names}")
-    blobs = [bucket.get_blob(name) for name in names]
-    contents = [blob.download_as_text() for blob in blobs if blob is not None]
-    tos = tree_from_strings(contents)
-    result = convert_tos_to_json(tos)
-    logging.info(f"Successfuly created tree for {tree_id}")
-    result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}.json"
-    bucket.blob(result_name).upload_from_string(
-        json.dumps(result, indent=2), content_type="application/json"
-    )
-    logging.info(f"Successfuly stored tree at {result_name}")
-    delta.update(
-        {
-            "version": "1",
-            "result": result_name,
-            "finishedDate": int(datetime.utcnow().timestamp()),
-        }
-    )
-    db.reference(tree_id).set(delta)
-    logging.info(f"Successfuly stored tree for {tree_id}")
+    try:
+        tree_id = "/".join(context.resource.split("/")[-2:])
+        logging.info(f"Creating tree for {tree_id}")
+        delta.update({"startedDate": int(datetime.utcnow().timestamp())})
+        db.reference(tree_id).set(delta)
+        bucket = storage_client.get_bucket(BUCKET_URL)
+        names = [f"isi-files/{name}" for name in delta["files"].values()]
+        logging.info(f"Reading source files {names}")
+        blobs = [bucket.get_blob(name) for name in names]
+        contents = [blob.download_as_text() for blob in blobs if blob is not None]
+        tos = tree_from_strings(contents)
+        result = convert_tos_to_json(tos)
+        logging.info(f"Successfuly created tree for {tree_id}")
+        result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}.json"
+        bucket.blob(result_name).upload_from_string(
+            json.dumps(result, indent=2), content_type="application/json"
+        )
+        logging.info(f"Successfuly stored tree at {result_name}")
+        delta.update(
+            {
+                "version": "1",
+                "result": result_name,
+                "finishedDate": int(datetime.utcnow().timestamp()),
+            }
+        )
+        db.reference(tree_id).set(delta)
+    except Exception as error:
+        error = str(error)
+        logging.error(f"There was an error: {error}")
+        delta.update({"result": None, "error": error})
