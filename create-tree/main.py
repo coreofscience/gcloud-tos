@@ -1,5 +1,4 @@
 import base64
-import json
 import logging
 import os
 from datetime import datetime
@@ -7,7 +6,7 @@ from io import StringIO
 from typing import Any, Dict, List
 
 import google.cloud.logging
-from firebase_admin import db, initialize_app
+from firebase_admin import db, firestore, initialize_app
 from google.cloud import storage
 from igraph import Graph
 from sap import CachedCollection, Sap, giant
@@ -21,7 +20,11 @@ BUCKET_URL = os.getenv("STORAGEBUCKET")
 DATABASE_URL = os.getenv("DATABASEURL")
 BUCKET = storage_client.get_bucket(BUCKET_URL)
 
-initialize_app(options={"databaseURL": DATABASE_URL})
+initialize_app(
+    options={
+        "databaseURL": DATABASE_URL,
+    }
+)
 
 
 def tree_from_strings(strings: List[str]) -> Graph:
@@ -64,11 +67,9 @@ def get_contents(delta: Dict[str, Any]) -> List[str]:
 
 def store_tree_result(tree_id: str, result: Dict[str, List[Dict]]) -> str:
     """Stores a json in the storage service with the result for the ToS built."""
-    logging.info(f"Successfuly created tree for {tree_id}")
-    result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}.json"
-    BUCKET.blob(result_name).upload_from_string(
-        json.dumps(result, indent=2), content_type="application/json"
-    )
+    result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}"
+    client = firestore.client()
+    client.document(result_name).set(result)
     return result_name
 
 
@@ -84,7 +85,6 @@ def create_tree(event, context):
         tos = tree_from_strings(contents)
         result = convert_tos_to_json(tos)
         result_name = store_tree_result(tree_id, result)
-
         logging.info(f"Successfuly stored tree at {result_name}")
         delta.update({"result": result_name, "error": None})
     except Exception as error:
