@@ -9,7 +9,8 @@ import google.cloud.logging
 from firebase_admin import db, firestore, initialize_app
 from google.cloud import storage
 from igraph import Graph
-from sap import CachedCollection, Sap, giant
+from sap import Sap, giant
+from wostools import Collection
 
 storage_client = storage.Client()
 logging_client = google.cloud.logging.Client()
@@ -30,7 +31,7 @@ initialize_app(
 def tree_from_strings(strings: List[str]) -> Graph:
     """Creates a ToS tree from a list of strings."""
     sap = Sap()
-    graph = giant(CachedCollection(*[StringIO(text) for text in strings]))
+    graph = giant(Collection(*[StringIO(text) for text in strings]))
     return sap.tree(graph)
 
 
