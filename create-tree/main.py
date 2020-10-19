@@ -36,13 +36,8 @@ def tree_from_strings(strings: List[str]) -> Graph:
 
 
 def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
-    """Converts a ToS graph in the default format to be processed by the
-    frontend. The default format is like:
-    {
-        "root": [{"label": "...", "title": "...", "authors": "...", ...}, ...],
-        "trunk": [{"label": "...", "title": "...", "authors": "...", ...}, ...],
-        "leaf": [{"label": "...", "title": "...", "authors": "...", ...}, ...],
-    }
+    """
+    Converts a ToS graph in the default format to be processed by the frontend.
     """
     output = {}
     sections = ["root", "trunk", "leaf"]
@@ -67,7 +62,9 @@ def get_contents(delta: Dict[str, Any]) -> List[str]:
 
 
 def store_tree_result(tree_id: str, result: Dict[str, List[Dict]]) -> str:
-    """Stores a json in the storage service with the result for the ToS built."""
+    """
+    Stores a json in the storage service with the result for the ToS built.
+    """
     result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}"
     client = firestore.client()
     client.document(result_name).set(result)
