@@ -21,6 +21,8 @@ BUCKET_URL = os.getenv("STORAGEBUCKET")
 DATABASE_URL = os.getenv("DATABASEURL")
 BUCKET = storage_client.get_bucket(BUCKET_URL)
 
+MAX_SIZE = 10  # MB
+
 initialize_app(
     options={
         "databaseURL": DATABASE_URL,
@@ -58,7 +60,15 @@ def get_contents(delta: Dict[str, Any]) -> List[str]:
     names = [f"isi-files/{name}" for name in delta["files"].values()]
     logging.info(f"Reading source files {names}")
     blobs = [BUCKET.get_blob(name) for name in names]
-    return [blob.download_as_text() for blob in blobs if blob is not None]
+
+    size = 0
+    output = []
+    for blob in blobs:
+        if blob is not None:
+            size += blob.size
+            if (size / 1e6) < MAX_SIZE:
+                output.append(blob.download_as_text())
+    return output
 
 
 def store_tree_result(tree_id: str, result: Dict[str, List[Dict]]) -> str:
