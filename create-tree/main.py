@@ -55,19 +55,20 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
     return output
 
 
-def get_contents(delta: Dict[str, Any]) -> List[str]:
+def get_contents(delta: Dict[str, Any]) -> Dict[str, str]:
     """Get the contents for the files in order to create the graph."""
     names = [f"isi-files/{name}" for name in delta["files"].values()]
     logging.info(f"Reading source files {names}")
     blobs = [BUCKET.get_blob(name) for name in names]
 
     size = 0
-    output = []
+    output = {}
     for blob in blobs:
         if blob is not None:
             size += blob.size
-            if (size / 1e6) < MAX_SIZE:
-                output.append(blob.download_as_text())
+            if (size / 1e6) > MAX_SIZE:
+                break
+            output[blob.name] = blob.download_as_text()
     return output
 
 
@@ -90,11 +91,13 @@ def create_tree(event, context):
 
     try:
         contents = get_contents(delta)
-        tos = tree_from_strings(contents)
+        tos = tree_from_strings(list(contents.values()))
         result = convert_tos_to_json(tos)
         result_name = store_tree_result(tree_id, result)
         logging.info(f"Successfuly stored tree at {result_name}")
-        delta.update({"result": result_name, "error": None})
+        delta.update(
+            {"result": result_name, "error": None, "usedFiles": list(contents.keys())}
+        )
     except Exception as error:
         logging.exception(f"There was an error processing {tree_id}")
         delta.update(
