@@ -21,6 +21,8 @@ BUCKET_URL = os.getenv("STORAGEBUCKET")
 DATABASE_URL = os.getenv("DATABASEURL")
 BUCKET = storage_client.get_bucket(BUCKET_URL)
 
+MAX_SIZE = 10  # MB
+
 initialize_app(
     options={
         "databaseURL": DATABASE_URL,
@@ -53,12 +55,21 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
     return output
 
 
-def get_contents(delta: Dict[str, Any]) -> List[str]:
+def get_contents(delta: Dict[str, Any]) -> Dict[str, str]:
     """Get the contents for the files in order to create the graph."""
     names = [f"isi-files/{name}" for name in delta["files"].values()]
     logging.info(f"Reading source files {names}")
     blobs = [BUCKET.get_blob(name) for name in names]
-    return [blob.download_as_text() for blob in blobs if blob is not None]
+
+    size = 0
+    output = {}
+    for blob in blobs:
+        if blob is not None:
+            size += blob.size
+            if (size / 1e6) > MAX_SIZE:
+                break
+            output[blob.name] = blob.download_as_text()
+    return output
 
 
 def store_tree_result(tree_id: str, result: Dict[str, List[Dict]]) -> str:
@@ -80,11 +91,13 @@ def create_tree(event, context):
 
     try:
         contents = get_contents(delta)
-        tos = tree_from_strings(contents)
+        tos = tree_from_strings(list(contents.values()))
         result = convert_tos_to_json(tos)
         result_name = store_tree_result(tree_id, result)
         logging.info(f"Successfuly stored tree at {result_name}")
-        delta.update({"result": result_name, "error": None})
+        delta.update(
+            {"result": result_name, "error": None, "usedFiles": list(contents.keys())}
+        )
     except Exception as error:
         logging.exception(f"There was an error processing {tree_id}")
         delta.update(
