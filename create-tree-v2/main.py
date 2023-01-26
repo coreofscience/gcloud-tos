@@ -82,7 +82,6 @@ def get_int_utcnow() -> int:
 
 def create_tree_v2(event, context):
     """Handles new created documents in firestore with path `trees/{treeId}`"""
-    # document_reference.update({"_gcloudLogsSessionUrl": logging_client})
     tree_id = context.resource.split("/").pop()
 
     logging.info(f"Handling new created tree {event} {context} {tree_id}")
