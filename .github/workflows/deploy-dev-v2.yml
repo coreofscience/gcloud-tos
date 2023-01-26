@@ -14,13 +14,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v1
+      - id: "auth"
+        uses: "google-github-actions/auth@v1"
         with:
-          version: "290.0.1"
-          project_id: "coreofscience-dev"
-          service_account_key: ${{ secrets.GCLOUD_SERVICE_ACCOUNT }}
-          export_default_credentials: true
+          credentials_json: "${{ secrets.GCLOUD_SERVICE_ACCOUNT }}"
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v1"
 
       - name: Deploy function
         run: |
