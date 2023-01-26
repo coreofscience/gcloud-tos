@@ -26,16 +26,11 @@ BUCKET = storage_client.get_bucket(BUCKET_URL)
 MAX_SIZE = 10  # MB
 
 
-logging.basicConfig("%(asctime)s %(tree_id)s %(message)s")
-logger = logging.getLogger("tree-collection-create-logger")
-
 initialize_app(
     options={
         "databaseURL": DATABASE_URL,
     }
 )
-
-client = firestore.Client()
 
 
 def tree_from_strings(strings: List[str]) -> Graph:
@@ -63,9 +58,9 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
     return output
 
 
-def get_contents(delta: Dict[str, Any]) -> Dict[str, str]:
+def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
     """Get the contents for the files in order to create the graph."""
-    names = [f"isi-files/{name}" for name in delta["files"].values()]
+    names = [f"isi-files/{name}" for name in document_data["fileReferences"].values()]
     logging.info(f"Reading source files {names}")
     blobs = [BUCKET.get_blob(name) for name in names]
 
@@ -85,6 +80,11 @@ def get_int_utcnow() -> int:
 
 
 def create_tree_v2(event, context):
+    logging.basicConfig("%(asctime)s %(tree_id)s %(message)s")
+    logger = logging.getLogger("tree-collection-create-logger")
+
+    client = firestore.Client()
+
     tree_id = context.resource.split("/").pop()
     logger_extra = {"treeId": tree_id}
     logger.info("Handling new created tree", extra=logger_extra)
@@ -99,7 +99,7 @@ def create_tree_v2(event, context):
     try:
         logger.info("Tree process started", extra=logger_extra)
 
-        contents = get_contents(asdict(event))
+        contents = get_contents(document_data)
         tos = tree_from_strings(list(contents.values()))
         result = convert_tos_to_json(tos)
         document_data.update(
