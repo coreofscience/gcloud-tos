@@ -24,8 +24,7 @@ jobs:
 
       - name: Deploy function
         run: |
-          gcloud functions deploy create_tree_v2 \
-            --entry-point ./create-tree-v2 \
+          cd create-tree-v2 && gcloud functions deploy create_tree_v2 \
             --runtime python311 \
             --trigger-event "providers/cloud.firestore/eventTypes/document.create" \
             --trigger-resource "projects/coreofscience-dev/databases/(default)/documents/trees/{treeId}"
