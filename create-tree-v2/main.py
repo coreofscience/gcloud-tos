@@ -7,7 +7,6 @@ from typing import Any, Dict, List
 from dataclasses import asdict
 
 import google.cloud.logging
-from firebase_admin import initialize_app
 from google.cloud import storage, firestore
 from igraph import Graph
 from sap import Sap, giant
@@ -24,13 +23,6 @@ DATABASE_URL = os.getenv("DATABASEURL")
 BUCKET = storage_client.get_bucket(BUCKET_URL)
 
 MAX_SIZE = 10  # MB
-
-
-initialize_app(
-    options={
-        "databaseURL": DATABASE_URL,
-    }
-)
 
 
 def tree_from_strings(strings: List[str]) -> Graph:
