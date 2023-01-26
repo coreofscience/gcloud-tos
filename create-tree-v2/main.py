@@ -61,7 +61,7 @@ def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
         f'isi-files/{name["stringValue"]}'
         for name in document_data["files"]["arrayValue"]["values"]
     ]
-    logging.info("Reading source files", extra={names})
+    logging.info("Reading source files", extra={"names": names})
     blobs = [BUCKET.get_blob(name) for name in names]
 
     size = 0
@@ -82,8 +82,11 @@ def get_int_utcnow() -> int:
 
 def create_tree_v2(event, context):
     """Handles new created documents in firestore with path `trees/{treeId}`"""
+    # document_reference.update({"_gcloudLogsSessionUrl": logging_client})
 
-    logging.info(f"Handling new created tree", extra={tree_id})
+    logging.info(
+        f"Handling new created tree", extra={"tree_id": tree_id, "context": context}
+    )
     client = firestore.client()
     tree_id = context.resource.split("/").pop()
     document_reference = client.collection("trees").document(tree_id)
