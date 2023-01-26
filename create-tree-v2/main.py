@@ -61,7 +61,7 @@ def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
         f'isi-files/{name["stringValue"]}'
         for name in document_data["files"]["arrayValue"]["values"]
     ]
-    logging.info(f"Reading source files {names}")
+    logging.info("Reading source files", extra={names})
     blobs = [BUCKET.get_blob(name) for name in names]
 
     size = 0
@@ -83,14 +83,14 @@ def get_int_utcnow() -> int:
 def create_tree_v2(event, context):
     """Handles new created documents in firestore with path `trees/{treeId}`"""
 
-    logging.info("Handling new created tree ({tree_id})")
+    logging.info(f"Handling new created tree", extra={tree_id})
     client = firestore.client()
     tree_id = context.resource.split("/").pop()
     document_reference = client.collection("trees").document(tree_id)
     document_reference.update({"startedDate": get_int_utcnow()})
 
     try:
-        logging.info("Tree process started ({tree_id})")
+        logging.info("Tree process started")
         contents = get_contents(event["value"]["fields"])
         tos = tree_from_strings(list(contents.values()))
         result = convert_tos_to_json(tos)
@@ -102,9 +102,9 @@ def create_tree_v2(event, context):
                 "finishedDate": get_int_utcnow(),
             }
         )
-        logging.info("Tree process finished ({tree_id})")
+        logging.info("Tree process finished")
     except Exception as error:
-        logging.exception("Tree process failed ({tree_id})")
+        logging.exception("Tree process failed")
         document_reference.update(
             {
                 "version": "2",
