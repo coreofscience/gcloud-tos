@@ -25,7 +25,7 @@ jobs:
       - name: Deploy function
         run: |
           cd create-tree-v2 && gcloud functions deploy create_tree_v2 \
-            --runtime python311 \
+            --set-env-vars STORAGEBUCKET="coreofscience-dev.appspot.com",DATABASEURL="https://coreofscience-dev.firebaseio.com" \
+            --runtime python310 \
             --trigger-event "providers/cloud.firestore/eventTypes/document.create" \
             --trigger-resource "projects/coreofscience-dev/databases/(default)/documents/trees/{treeId}"
-            --set-env-vars STORAGEBUCKET="coreofscience-dev.appspot.com",DATABASEURL="https://coreofscience-dev.firebaseio.com" \
