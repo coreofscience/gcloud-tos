@@ -85,8 +85,7 @@ def create_tree_v2(event, context):
     # document_reference.update({"_gcloudLogsSessionUrl": logging_client})
     tree_id = context.resource.split("/").pop()
 
-    extra = {"tree_id": tree_id, "context": context}
-    logging.info(f"Handling new created tree", extra=extra)
+    logging.info(f"Handling new created tree {event} {context} {tree_id}")
 
     client = firestore.client()
     document_reference = client.collection("trees").document(tree_id)
