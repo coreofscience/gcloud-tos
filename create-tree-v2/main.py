@@ -59,7 +59,7 @@ def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
     """Get the contents for the files in order to create the graph."""
     names = [
         f'isi-files/{name["stringValue"]}'
-        for name in document_data["fileReferences"]["arrayValue"]["values"]
+        for name in document_data["files"]["arrayValue"]["values"]
     ]
     logging.info(f"Reading source files {names}")
     blobs = [BUCKET.get_blob(name) for name in names]
@@ -67,11 +67,12 @@ def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
     size = 0
     output = {}
     for blob in blobs:
-        if blob is not None:
-            size += blob.size
-            if (size / 1e6) > MAX_SIZE:
-                break
-            output[blob.name] = blob.download_as_text()
+        if blob is None:
+            continue
+        size += blob.size
+        if (size / 1e6) > MAX_SIZE:
+            break
+        output[blob.name] = blob.download_as_text()
     return output
 
 
@@ -80,18 +81,16 @@ def get_int_utcnow() -> int:
 
 
 def create_tree_v2(event, context):
-    client = firestore.client()
+    """Handles new created documents in firestore with path `trees/{treeId}`"""
 
-    tree_id = context.resource.split("/").pop()
     logging.info("Handling new created tree ({tree_id})")
-
+    client = firestore.client()
+    tree_id = context.resource.split("/").pop()
     document_reference = client.collection("trees").document(tree_id)
-
     document_reference.update({"startedDate": get_int_utcnow()})
 
     try:
         logging.info("Tree process started ({tree_id})")
-
         contents = get_contents(event["value"]["fields"])
         tos = tree_from_strings(list(contents.values()))
         result = convert_tos_to_json(tos)
@@ -99,8 +98,7 @@ def create_tree_v2(event, context):
             {
                 "version": "2",
                 "result": result,
-                "errorMessage": None,
-                "fileNames": list(contents.keys()),
+                "error": None,
                 "finishedDate": get_int_utcnow(),
             }
         )
@@ -111,8 +109,7 @@ def create_tree_v2(event, context):
             {
                 "version": "2",
                 "result": None,
-                "errorMessage": str(error),
-                "fileNames": None,
+                "error": str(error),
                 "finishedDate": get_int_utcnow(),
             }
         )
