@@ -7,7 +7,8 @@ from typing import Any, Dict, List
 from dataclasses import asdict
 
 import google.cloud.logging
-from google.cloud import storage, firestore
+from firebase_admin import firestore, initialize_app
+from google.cloud import storage
 from igraph import Graph
 from sap import Sap, giant
 from wostools import Collection
@@ -23,6 +24,12 @@ DATABASE_URL = os.getenv("DATABASEURL")
 BUCKET = storage_client.get_bucket(BUCKET_URL)
 
 MAX_SIZE = 10  # MB
+
+initialize_app(
+    options={
+        "databaseURL": DATABASE_URL,
+    }
+)
 
 
 def tree_from_strings(strings: List[str]) -> Graph:
@@ -72,7 +79,7 @@ def get_int_utcnow() -> int:
 
 
 def create_tree_v2(event, context):
-    client = firestore.Client()
+    client = firestore.client()
 
     tree_id = context.resource.split("/").pop()
     logging.info("Handling new created tree ({tree_id})")
