@@ -1,0 +1,32 @@
+name: Deploy function to dev
+
+on:
+  push:
+    branches:
+      - create_tree-v2
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Setup gcloud
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          version: "290.0.1"
+          project_id: "coreofscience-dev"
+          service_account_key: ${{ secrets.GCLOUD_SERVICE_ACCOUNT }}
+          export_default_credentials: true
+
+      - name: Deploy function
+        run: |
+          gcloud functions deploy create-tree-v2 \
+            --entry-point ./create-tree-v2 \
+            --runtime python311 \
+            --trigger-event "providers/cloud.firestore/eventTypes/document.create" \
+            --trigger-resource "projects/coreofscience-dev/databases/(default)/documents/trees/{treeId}"
+            --set-env-vars STORAGEBUCKET="coreofscience-dev.appspot.com",DATABASEURL="https://coreofscience-dev.firebaseio.com" \
