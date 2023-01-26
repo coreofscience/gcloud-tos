@@ -2,4 +2,3 @@ python-sap==2.0.0
 firebase-admin==4.4.0
 google-cloud-storage==1.31.2
 google-cloud-logging==1.15.1
-dacite==1.7.0
