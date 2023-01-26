@@ -1,10 +1,8 @@
-import base64
 import logging
 import os
 from datetime import datetime
 from io import StringIO
 from typing import Any, Dict, List
-from dataclasses import asdict
 
 import google.cloud.logging
 from firebase_admin import firestore, initialize_app
