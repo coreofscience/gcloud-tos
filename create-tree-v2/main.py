@@ -72,14 +72,10 @@ def get_int_utcnow() -> int:
 
 
 def create_tree_v2(event, context):
-    logging.basicConfig("%(asctime)s %(tree_id)s %(message)s")
-    logger = logging.getLogger("tree-collection-create-logger")
-
     client = firestore.Client()
 
     tree_id = context.resource.split("/").pop()
-    logger_extra = {"treeId": tree_id}
-    logger.info("Handling new created tree", extra=logger_extra)
+    logging.info("Handling new created tree ({tree_id})")
 
     document_reference = client.collection("trees").document(tree_id)
 
@@ -89,7 +85,7 @@ def create_tree_v2(event, context):
     document_reference.set(document_data)
 
     try:
-        logger.info("Tree process started", extra=logger_extra)
+        logging.info("Tree process started ({tree_id})")
 
         contents = get_contents(document_data)
         tos = tree_from_strings(list(contents.values()))
@@ -98,9 +94,9 @@ def create_tree_v2(event, context):
             {"result": result, "errorMessage": None, "fileNames": list(contents.keys())}
         )
 
-        logger.info("Tree process finished", extra=logger_extra)
+        logging.info("Tree process finished ({tree_id})")
     except Exception as error:
-        logger.exception("Tree process failed", extra=logger_extra)
+        logging.exception("Tree process failed ({tree_id})")
         document_data.update(
             {"result": None, "errorMessage": str(error), "fileNames": None}
         )
