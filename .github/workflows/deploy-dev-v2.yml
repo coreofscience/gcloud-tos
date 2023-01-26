@@ -3,7 +3,7 @@ name: Deploy function to dev
 on:
   push:
     branches:
-      - feature-create-tree-v2
+      - feature-create-tree-v2 # On pushing to this branch, this workflow will be dispatched
 
 jobs:
   build-and-deploy:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: create_tree-v2 # The branch to checkout
+          ref: feature-create-tree-v2 # The branch to checkout for the deploy
           persist-credentials: false
 
       - id: "auth"
@@ -25,9 +25,6 @@ jobs:
 
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v1"
-
-      - name: "Use gcloud CLI"
-        run: "gcloud info"
 
       - name: Deploy function
         run: |
