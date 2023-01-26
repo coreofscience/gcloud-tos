@@ -83,12 +83,12 @@ def get_int_utcnow() -> int:
 def create_tree_v2(event, context):
     """Handles new created documents in firestore with path `trees/{treeId}`"""
     # document_reference.update({"_gcloudLogsSessionUrl": logging_client})
-
-    logging.info(
-        f"Handling new created tree", extra={"tree_id": tree_id, "context": context}
-    )
-    client = firestore.client()
     tree_id = context.resource.split("/").pop()
+
+    extra = {"tree_id": tree_id, "context": context}
+    logging.info(f"Handling new created tree", extra=extra)
+
+    client = firestore.client()
     document_reference = client.collection("trees").document(tree_id)
     document_reference.update({"startedDate": get_int_utcnow()})
 
