@@ -57,7 +57,10 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
 
 def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
     """Get the contents for the files in order to create the graph."""
-    names = [f"isi-files/{name}" for name in document_data["fileReferences"].values()]
+    names = [
+        f'isi-files/{name["stringValue"]}'
+        for name in document_data["fileReferences"]["arrayValue"]["values"]
+    ]
     logging.info(f"Reading source files {names}")
     blobs = [BUCKET.get_blob(name) for name in names]
 
@@ -84,32 +87,32 @@ def create_tree_v2(event, context):
 
     document_reference = client.collection("trees").document(tree_id)
 
-    document_data = event["value"]["fields"]
-
-    document_data.update({"startedDate": get_int_utcnow()})
-    document_reference.set(document_data)
+    document_reference.update({"startedDate": get_int_utcnow()})
 
     try:
         logging.info("Tree process started ({tree_id})")
 
-        contents = get_contents(document_data)
+        contents = get_contents(event["value"]["fields"])
         tos = tree_from_strings(list(contents.values()))
         result = convert_tos_to_json(tos)
-        document_data.update(
-            {"result": result, "errorMessage": None, "fileNames": list(contents.keys())}
+        document_reference.update(
+            {
+                "version": "2",
+                "result": result,
+                "errorMessage": None,
+                "fileNames": list(contents.keys()),
+                "finishedDate": get_int_utcnow(),
+            }
         )
-
         logging.info("Tree process finished ({tree_id})")
     except Exception as error:
         logging.exception("Tree process failed ({tree_id})")
-        document_data.update(
-            {"result": None, "errorMessage": str(error), "fileNames": None}
+        document_reference.update(
+            {
+                "version": "2",
+                "result": None,
+                "errorMessage": str(error),
+                "fileNames": None,
+                "finishedDate": get_int_utcnow(),
+            }
         )
-
-    document_data.update(
-        {
-            "version": "2",
-            "finishedDate": get_int_utcnow(),
-        }
-    )
-    document_reference.set(document_data)
