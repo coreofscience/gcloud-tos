@@ -1,4 +1,3 @@
-import base64
 import logging
 import os
 from datetime import datetime
@@ -6,11 +5,12 @@ from io import StringIO
 from typing import Any, Dict, List
 
 import google.cloud.logging
-from firebase_admin import db, firestore, initialize_app
+from firebase_admin import firestore, initialize_app
 from google.cloud import storage
 from igraph import Graph
 from sap import Sap, giant
 from wostools import Collection
+
 
 storage_client = storage.Client()
 logging_client = google.cloud.logging.Client()
@@ -55,62 +55,62 @@ def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
     return output
 
 
-def get_contents(delta: Dict[str, Any]) -> Dict[str, str]:
+def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
     """Get the contents for the files in order to create the graph."""
-    names = [f"isi-files/{name}" for name in delta["files"].values()]
-    logging.info(f"Reading source files {names}")
+    names = [
+        f'isi-files/{name["stringValue"]}'
+        for name in document_data["files"]["arrayValue"]["values"]
+    ]
+    logging.info("Reading source files", extra={"names": names})
     blobs = [BUCKET.get_blob(name) for name in names]
 
     size = 0
     output = {}
     for blob in blobs:
-        if blob is not None:
-            size += blob.size
-            if (size / 1e6) > MAX_SIZE:
-                break
-            output[blob.name] = blob.download_as_text()
+        if blob is None:
+            continue
+        size += blob.size
+        if (size / 1e6) > MAX_SIZE:
+            break
+        output[blob.name] = blob.download_as_text()
     return output
 
 
-def store_tree_result(tree_id: str, result: Dict[str, List[Dict]]) -> str:
-    """
-    Stores a json in the storage service with the result for the ToS built.
-    """
-    result_name = f"results/{base64.b64encode(tree_id.encode()).decode()}"
-    client = firestore.client()
-    client.document(result_name).set(result)
-    return result_name
+def get_int_utcnow() -> int:
+    return int(datetime.utcnow().timestamp())
 
 
 def create_tree(event, context):
-    delta = event.get("delta", {"files": {}})
-    tree_id = "/".join(context.resource.split("/")[-2:])
-    logging.info(f"Creating tree for {tree_id}")
-    delta.update({"startedDate": int(datetime.utcnow().timestamp())})
-    db.reference(tree_id).set(delta)
+    """Handles new created documents in firestore with path `trees/{treeId}`"""
+    tree_id = context.resource.split("/").pop()
+
+    logging.info(f"Handling new created tree {event} {context} {tree_id}")
+
+    client = firestore.client()
+    document_reference = client.collection("trees").document(tree_id)
+    document_reference.update({"startedDate": get_int_utcnow()})
 
     try:
-        contents = get_contents(delta)
+        logging.info("Tree process started")
+        contents = get_contents(event["value"]["fields"])
         tos = tree_from_strings(list(contents.values()))
         result = convert_tos_to_json(tos)
-        result_name = store_tree_result(tree_id, result)
-        logging.info(f"Successfuly stored tree at {result_name}")
-        delta.update(
-            {"result": result_name, "error": None, "usedFiles": list(contents.keys())}
-        )
-    except Exception as error:
-        logging.exception(f"There was an error processing {tree_id}")
-        delta.update(
+        document_reference.update(
             {
-                "result": None,
-                "error": str(error),
+                "version": "2",
+                "result": result,
+                "error": None,
+                "finishedDate": get_int_utcnow(),
             }
         )
-
-    delta.update(
-        {
-            "version": "1",
-            "finishedDate": int(datetime.utcnow().timestamp()),
-        }
-    )
-    db.reference(tree_id).set(delta)
+        logging.info("Tree process finished")
+    except Exception as error:
+        logging.exception("Tree process failed")
+        document_reference.update(
+            {
+                "version": "2",
+                "result": None,
+                "error": str(error),
+                "finishedDate": get_int_utcnow(),
+            }
+        )

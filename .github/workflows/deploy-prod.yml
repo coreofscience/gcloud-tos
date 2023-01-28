@@ -1,4 +1,4 @@
-name: Deploy function to prod
+name: Deploy function to dev
 
 on:
   push:
@@ -8,26 +8,31 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
+          ref: main # The branch to checkout for the deploy
           persist-credentials: false
 
-      - name: Setup gcloud
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+      - id: "auth"
+        uses: "google-github-actions/auth@v1"
         with:
-          version: '290.0.1'
-          project_id: 'coreofscience'
-          service_account_key: ${{ secrets.GCLOUD_PROD_SERVICE_ACCOUNT }}
-          export_default_credentials: true
+          credentials_json: "${{ secrets.GCLOUD_SERVICE_ACCOUNT }}"
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v1"
 
       - name: Deploy function
         run: |
           gcloud functions deploy create_tree \
             --project coreofscience \
-            --trigger-event providers/google.firebase.database/eventTypes/ref.create \
-            --trigger-resource projects/_/instances/coreofscience/refs/trees/{treeId} \
+            --trigger-event "providers/cloud.firestore/eventTypes/document.create" \
+            --trigger-resource "projects/coreofscience/databases/(default)/documents/trees/{treeId}" \
             --set-env-vars STORAGEBUCKET="coreofscience.appspot.com",DATABASEURL="https://coreofscience.firebaseio.com" \
             --source ./create-tree \
-            --runtime python38
+            --entry-point create_tree \
+            --runtime python310
