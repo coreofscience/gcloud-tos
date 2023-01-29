@@ -1,4 +1,4 @@
-name: Deploy v2 function to dev
+name: Deploy functions to prod
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: Deploy function to dev
+name: Deploy functions to dev
 
 on:
   push:
