@@ -56,7 +56,7 @@ def convert_tos_to_json(tree: nx.DiGraph) -> Dict[str, List[Dict]]:
     for section in sections:
         data = sorted(
             [
-                {key: val for key, val in data if not key.startswith("_")}
+                {key: val for key, val in data.items() if not key.startswith("_")}
                 for node, data in tree.nodes.items()
                 if tree.nodes[node][section] > 0
             ],
