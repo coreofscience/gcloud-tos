@@ -1,16 +1,16 @@
 import logging
 import os
 from datetime import datetime
+from functools import reduce
 from io import StringIO
 from typing import Any, Dict, List
 
 import google.cloud.logging
+import networkx as nx
+from bibx import Collection, read_scopus, read_wos
+from bibx.algorithms.sap import Sap
 from firebase_admin import firestore, initialize_app
 from google.cloud import storage
-from igraph import Graph
-from sap import Sap, giant
-from wostools import Collection
-
 
 storage_client = storage.Client()
 logging_client = google.cloud.logging.Client()
@@ -30,23 +30,36 @@ initialize_app(
 )
 
 
-def tree_from_strings(strings: List[str]) -> Graph:
+def read_any(io: StringIO) -> Collection:
+    try:
+        return read_wos(io)
+    except:
+        return read_scopus(io)
+
+
+def tree_from_strings(strings: List[str]) -> nx.DiGraph:
     """Creates a ToS tree from a list of strings."""
+    collections = [read_any(StringIO(text)) for text in strings]
+    collection = reduce(lambda x, y: x.merge(y), collections)
     sap = Sap()
-    graph = giant(Collection(*[StringIO(text) for text in strings]))
+    graph = sap.create_graph(collection)
+    graph = sap.clean_graph(graph)
     return sap.tree(graph)
 
 
-def convert_tos_to_json(tree: Graph) -> Dict[str, List[Dict]]:
+def convert_tos_to_json(tree: nx.DiGraph) -> Dict[str, List[Dict]]:
     """
     Converts a ToS graph in the default format to be processed by the frontend.
     """
     output = {}
-    sections = ["root", "trunk", "leaf"]
+    sections = ["root", "trunk", "leaf", "branch"]
     for section in sections:
-        vertices = tree.vs.select(**{f"{section}_gt": 0})
         data = sorted(
-            [vertex.attributes() for vertex in vertices],
+            [
+                data
+                for node, data in tree.nodes.items()
+                if tree.nodes[node][section] > 0
+            ],
             key=lambda article: article.get(section, 0),
             reverse=True,
         )
@@ -62,14 +75,14 @@ def get_contents(document_data: Dict[str, Any]) -> Dict[str, str]:
         for name in document_data["files"]["arrayValue"]["values"]
     ]
     logging.info("Reading source files", extra={"names": names})
-    blobs = [BUCKET.get_blob(name) for name in names]
+    blobs = list(filter(None, [BUCKET.get_blob(name) for name in names]))
 
     size = 0
     output = {}
     for blob in blobs:
         if blob is None:
             continue
-        size += blob.size
+        size += blob.size or 0
         if (size / 1e6) > MAX_SIZE:
             break
         output[blob.name] = blob.download_as_text()
