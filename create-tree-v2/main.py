@@ -52,11 +52,11 @@ def convert_tos_to_json(tree: nx.DiGraph) -> Dict[str, List[Dict]]:
     Converts a ToS graph in the default format to be processed by the frontend.
     """
     output = {}
-    sections = ["root", "trunk", "leaf", "branch"]
+    sections = ["root", "trunk", "leaf"]
     for section in sections:
         data = sorted(
             [
-                data
+                {key: val for key, val in data if not key.startswith("_")}
                 for node, data in tree.nodes.items()
                 if tree.nodes[node][section] > 0
             ],
