@@ -7,8 +7,7 @@ from typing import Any, Dict, List
 
 import google.cloud.logging
 import networkx as nx
-from bibx import Collection, read_scopus, read_wos
-from bibx.algorithms.sap import Sap
+from bibx import Sap, read_any
 from firebase_admin import firestore, initialize_app
 from google.cloud import storage
 
@@ -28,13 +27,6 @@ initialize_app(
         "databaseURL": DATABASE_URL,
     }
 )
-
-
-def read_any(io: StringIO) -> Collection:
-    try:
-        return read_wos(io)
-    except:
-        return read_scopus(io)
 
 
 def tree_from_strings(strings: List[str]) -> nx.DiGraph:
