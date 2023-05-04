@@ -24,15 +24,15 @@ jobs:
       - name: Set up Cloud SDK
         uses: "google-github-actions/setup-gcloud@v1"
 
-      - name: Deploy v1 function
-        run: |
-          gcloud functions deploy create_tree \
-            --project coreofscience \
-            --trigger-event providers/google.firebase.database/eventTypes/ref.create \
-            --trigger-resource projects/_/instances/coreofscience/refs/trees/{treeId} \
-            --set-env-vars STORAGEBUCKET="coreofscience.appspot.com",DATABASEURL="https://coreofscience.firebaseio.com" \
-            --source ./create-tree \
-            --runtime python38
+      # - name: Deploy v1 function
+      #   run: |
+      #     gcloud functions deploy create_tree \
+      #       --project coreofscience \
+      #       --trigger-event providers/google.firebase.database/eventTypes/ref.create \
+      #       --trigger-resource projects/_/instances/coreofscience/refs/trees/{treeId} \
+      #       --set-env-vars STORAGEBUCKET="coreofscience.appspot.com",DATABASEURL="https://coreofscience.firebaseio.com" \
+      #       --source ./create-tree \
+      #       --runtime python38
 
       - name: Deploy v2 function
         run: |
