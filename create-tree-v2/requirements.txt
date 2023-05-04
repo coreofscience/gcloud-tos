@@ -1,4 +1,4 @@
-bibx==0.0.1a3
+bibx==0.0.1a4
 networkx==3.1
 firebase-admin==4.4.0
 google-cloud-storage==1.31.2
